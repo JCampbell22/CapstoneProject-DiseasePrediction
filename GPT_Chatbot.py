@@ -3,6 +3,7 @@ from tkinter import scrolledtext
 import torch
 from transformers import MllamaForConditionalGeneration, AutoProcessor
 import threading
+import time  # Import the time module for timing
 
 # Global variables to hold the model and processor
 model = None
@@ -39,13 +40,23 @@ def llama_chatbot_response(user_input):
         return_tensors="pt"
     ).to(model.device)
 
-    output = model.generate(**inputs, max_new_tokens=30)
+    start_time = time.time()  # Start timing before the model generates a response
+
+    output = model.generate(**inputs, max_new_tokens=5)
     response = processor.decode(output[0], skip_special_tokens=True)
-    
+
+    end_time = time.time()  # End timing after the response is generated
+
     # Trim the response to remove any unwanted system information
     response = response.split("user")[1].strip() if "user" in response else response.strip()
-    print("Bot response:", response)  # Debug print
-    return response
+
+    # Calculate the time taken in seconds
+    duration = end_time - start_time
+
+    print(f"Bot response: {response}, Time taken: {duration:.2f} seconds")  # Debug print
+
+    # Return both the response and the time taken for display in the UI
+    return response, duration
 
 class ChatbotApp:
     def __init__(self, root):
@@ -78,18 +89,18 @@ class ChatbotApp:
             threading.Thread(target=self.send_message, args=(user_message,)).start()
 
     def send_message(self, user_message):
-        # Get bot's response
+        # Get bot's response and the time taken
         try:
-            bot_response = llama_chatbot_response(user_message)
+            bot_response, response_time = llama_chatbot_response(user_message)
         except Exception as e:
-            bot_response = f"Error: {str(e)}"
+            bot_response, response_time = f"Error: {str(e)}", 0.0
         
-        # Display bot's response
+        # Display bot's response and the time taken
         self.chat_area.configure(state='normal')
 
         # Clear previous "Thinking..." message and insert the new response
         self.chat_area.delete("end-2l", tk.END)  # Remove the "Bot: Thinking..." line
-        self.chat_area.insert(tk.END, "Bot: " + bot_response + "\n")
+        self.chat_area.insert(tk.END, f"Bot: {bot_response} (Response time: {response_time:.2f} seconds)\n")
         
         self.chat_area.configure(state='disabled')
         self.chat_area.yview(tk.END)
